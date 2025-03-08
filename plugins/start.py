@@ -77,39 +77,38 @@ async def start_command(client: Client, message: Message):
     if len(text) > 7:
         try:
             base64_string = text.split(" ", 1)[1]
-        except IndexError:
-            return
+            string = await decode(base64_string)
+            argument = string.split("-")
 
-        string = await decode(base64_string)
-        argument = string.split("-")
-
-        ids = []
-        if len(argument) == 3:
-            try:
+            ids = []
+            if len(argument) == 3:
                 start = int(int(argument[1]) / abs(client.db_channel.id))
                 end = int(int(argument[2]) / abs(client.db_channel.id))
                 ids = range(start, end + 1) if start <= end else list(range(start, end - 1, -1))
-            except Exception as e:
-                print(f"Error decoding IDs: {e}")
-                return
-
-        elif len(argument) == 2:
-            try:
+            elif len(argument) == 2:
                 ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-            except Exception as e:
-                print(f"Error decoding ID: {e}")
-                return
+        except Exception as e:
+            print(f"❌ Error decoding IDs: {e}")
+            return
 
-        temp_msg = await message.reply("Please wait...")
+        # ✅ Sending "Please wait..." message
+        try:
+            temp_msg = await message.reply("⏳ Please wait...")
+        except Exception as e:
+            print(f"❌ Failed to send reply message: {e}")
+            return
+
+        # ✅ Fetching Messages
         try:
             messages = await get_messages(client, ids)
         except Exception as e:
-            await message.reply_text("Something went wrong!")
-            print(f"Error getting messages: {e}")
+            await message.reply_text("❌ Something went wrong!")
+            print(f"❌ Error getting messages: {e}")
             return
         finally:
             await temp_msg.delete()
 
+        # ✅ Sending Messages to User
         codeflix_msgs = []
         for msg in messages:
             caption = (CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html, 
@@ -119,17 +118,18 @@ async def start_command(client: Client, message: Message):
             reply_markup = msg.reply_markup if DISABLE_CHANNEL_BUTTON else None
 
             try:
-                copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML, 
+                copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode="html", 
                                             reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
                 codeflix_msgs.append(copied_msg)
             except FloodWait as e:
                 await asyncio.sleep(e.x)
-                copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML, 
+                copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode="html", 
                                             reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
                 codeflix_msgs.append(copied_msg)
             except Exception as e:
-                print(f"Failed to send message: {e}")
+                print(f"❌ Failed to send message: {e}")
                 pass
+
 
         if FILE_AUTO_DELETE > 0:
             notification_msg = await message.reply(
